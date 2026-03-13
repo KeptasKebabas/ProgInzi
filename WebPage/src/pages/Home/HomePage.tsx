@@ -5,6 +5,7 @@ import Header from "../../components/layout/Header/Header";
 import { TopNav } from "../../components/layout/TopNav/TopNav";
 import RightPanel from "../../components/layout/RightPanel/RightPanel";
 import Footer from "../../components/layout/Footer/Footer";
+import Chat from "../../components/chat/Chat";
 import logoSrc from "../../assets/logo.png";
 
 
@@ -28,9 +29,7 @@ export default function HomePage({ theme, onToggleTheme }: HomePageProps) {
       //leftColumn={<Sidebar items={sidebarItems} />} // cia history
       rightMain={
         <>
-          <section className="chat" aria-label="Chat">
-            
-          </section>
+          <Chat />
 		
           <RightPanel /> 
         </>
