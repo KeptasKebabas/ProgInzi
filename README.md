@@ -142,14 +142,18 @@ Reload Nginx:
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-### 7. Start the backend (runs in background)
+### 7. Install pm2 and start the backend
 
 ```bash
+npm install -g pm2
 source venv/bin/activate
-nohup uvicorn chatbot.main:app --port 8000 &
+pm2 start "uvicorn chatbot.main:app --port 8000" --name chatbot
+pm2 save
 ```
 
-Logs go to `nohup.out`. To stop it: `pkill -f uvicorn`.
+To check logs: `pm2 logs chatbot`
+To stop: `pm2 stop chatbot`
+To restart: `pm2 restart chatbot`
 
 ---
 
@@ -160,9 +164,7 @@ cd /var/www/ProgramavimoProjektas
 git pull origin main
 cd WebPage && npm install && npm run build && cd ..
 sudo systemctl reload nginx
-pkill -f uvicorn
-source venv/bin/activate
-nohup uvicorn chatbot.main:app --port 8000 &
+pm2 restart chatbot
 ```
 
 ---
