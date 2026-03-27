@@ -42,7 +42,6 @@ export default function Chat() {
       timestamp: now,
     };
     setMessages((prev) => [...prev, userMessage]);
-    setInput("");
     setIsLoading(true);
 
     try {
@@ -50,16 +49,20 @@ export default function Chat() {
         role: m.role,
         content: m.text,
       }));
-      const res = await fetch(`${API_URL}/api/chat`, {
+      const endpoint = API_URL ? `${API_URL}/api/chat` : "/api/chat";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: trimmed, conversation_history: history }),
       });
-      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(`Chat request failed: ${res.status}`);
+      }
+      const data = (await res.json()) as { response?: string };
       const botMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        text: data.response,
+        text: data.response ?? "(No response text from server.)",
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, botMessage]);
@@ -73,6 +76,8 @@ export default function Chat() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // Clear only after submit completes so the field stays readable while loading.
+      setInput("");
     }
   };
 
@@ -84,7 +89,7 @@ export default function Chat() {
   };
 
   return (
-    <section className="chat" aria-label="Chat">
+    <section className="chat" aria-label="Chat" aria-busy={isLoading}>
       <header className="chat-header">
         <div className="chat-header-main">
           <div
@@ -211,6 +216,7 @@ export default function Chat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={isLoading}
           aria-label="Message to chatbot"
         />
         <button

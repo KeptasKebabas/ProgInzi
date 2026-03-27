@@ -263,6 +263,10 @@ p, ul, ol {
 [data-theme="dark"] .chat .ask .input::placeholder {
   color: var(--text-secondary);
 }
+.chat .ask .input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
 .chat-send {
   width: 48px;
   height: 48px;
