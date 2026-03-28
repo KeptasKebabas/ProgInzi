@@ -5,11 +5,18 @@ const API_URL = import.meta.env.VITE_API_URL ?? "";
 
 type ChatRole = "user" | "assistant";
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   role: ChatRole;
   text: string;
   timestamp: number;
+}
+
+export interface ChatProps {
+  /** Active session; when null, input is disabled until user creates or selects a chat. */
+  sessionId: string | null;
+  messages: ChatMessage[];
+  onMessagesChange: (messages: ChatMessage[]) => void;
 }
 
 function formatMessageTime(ms: number): string {
@@ -18,18 +25,30 @@ function formatMessageTime(ms: number): string {
 }
 
 
-export default function Chat() {
+export default function Chat({
+  sessionId,
+  messages,
+  onMessagesChange,
+}: ChatProps) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOnline] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setIsLoading(false);
+    setInput("");
+  }, [sessionId]);
 
   const handleStop = () => {
     abortControllerRef.current?.abort();
@@ -40,8 +59,9 @@ export default function Chat() {
 
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || sessionId === null) return;
 
+    const idAtSend = sessionId;
     const now = Date.now();
     const userMessage: ChatMessage = {
       id: `user-${now}`,
@@ -49,14 +69,15 @@ export default function Chat() {
       text: trimmed,
       timestamp: now,
     };
-    setMessages((prev) => [...prev, userMessage]);
+    const afterUser = [...messages, userMessage];
+    onMessagesChange(afterUser);
     setIsLoading(true);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
-      const history = messages.map((m) => ({
+      const history = afterUser.map((m) => ({
         role: m.role,
         content: m.text,
       }));
@@ -72,13 +93,14 @@ export default function Chat() {
       }
       const data = (await res.json()) as { response?: string };
       if (controller.signal.aborted) return;
+      if (sessionIdRef.current !== idAtSend) return;
       const botMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
         text: data.response ?? "(No response text from server.)",
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, botMessage]);
+      onMessagesChange([...afterUser, botMessage]);
     } catch (err) {
       // If the user cancels, don't show an error bubble.
       if (
@@ -87,13 +109,14 @@ export default function Chat() {
       ) {
         return;
       }
+      if (sessionIdRef.current !== idAtSend) return;
       const errorMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
         text: "Sorry, I couldn't reach the server. Please try again.",
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      onMessagesChange([...afterUser, errorMessage]);
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
@@ -158,7 +181,9 @@ export default function Chat() {
       >
         {messages.length === 0 && !isLoading && (
           <p className="chat-messages-empty" aria-live="polite">
-            Start a conversation
+            {sessionId === null
+              ? "Create a new chat or pick one from the list to get started."
+              : "Start a conversation"}
           </p>
         )}
         {messages.map((message) => (
@@ -237,7 +262,7 @@ export default function Chat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={isLoading}
+          disabled={isLoading || sessionId === null}
           aria-label="Message to chatbot"
         />
         {isLoading && (
@@ -269,7 +294,7 @@ export default function Chat() {
           type="button"
           className="chat-send"
           onClick={handleSend}
-          disabled={!input.trim() || isLoading}
+          disabled={!input.trim() || isLoading || sessionId === null}
           aria-label="Send message"
         >
           <svg
