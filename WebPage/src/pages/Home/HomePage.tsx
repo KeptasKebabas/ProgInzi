@@ -21,15 +21,32 @@ export default function HomePage({ theme, onToggleTheme }: HomePageProps) {
     Record<string, ChatMessage[]>
   >({});
 
+  const getNextNewChatTitle = (existingSessions: ChatSession[]): string => {
+    const baseTitle = "New chat";
+    const normalizedTitles = new Set(
+      existingSessions.map((session) => session.title.trim().toLocaleLowerCase()),
+    );
+    if (!normalizedTitles.has(baseTitle.toLocaleLowerCase())) {
+      return baseTitle;
+    }
+    let suffix = 2;
+    while (normalizedTitles.has(`${baseTitle} ${suffix}`.toLocaleLowerCase())) {
+      suffix += 1;
+    }
+    return `${baseTitle} ${suffix}`;
+  };
+
   const handleCreateNewChat = useCallback(() => {
     const id = crypto.randomUUID();
     const now = Date.now();
-    const newSession: ChatSession = {
-      id,
-      title: "New chat",
-      timestamp: now,
-    };
-    setSessions((prev) => [newSession, ...prev]);
+    setSessions((prev) => {
+      const newSession: ChatSession = {
+        id,
+        title: getNextNewChatTitle(prev),
+        timestamp: now,
+      };
+      return [newSession, ...prev];
+    });
     setActiveSessionId(id);
     setMessagesBySession((prev) => ({ ...prev, [id]: [] }));
   }, []);
@@ -37,6 +54,17 @@ export default function HomePage({ theme, onToggleTheme }: HomePageProps) {
   const handleSelectSession = useCallback((sessionId: string) => {
     setActiveSessionId(sessionId);
   }, []);
+
+  const handleRenameSession = useCallback(
+    async (sessionId: string, nextTitle: string) => {
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === sessionId ? { ...session, title: nextTitle } : session,
+        ),
+      );
+    },
+    [],
+  );
 
   const handleMessagesChange = useCallback(
     (next: ChatMessage[]) => {
@@ -66,6 +94,7 @@ export default function HomePage({ theme, onToggleTheme }: HomePageProps) {
           activeSessionId={activeSessionId}
           onCreateNewChat={handleCreateNewChat}
           onSelectSession={handleSelectSession}
+          onRenameSession={handleRenameSession}
         />
       }
       rightMain={
