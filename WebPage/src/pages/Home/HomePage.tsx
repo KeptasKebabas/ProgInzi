@@ -90,6 +90,18 @@ export default function HomePage({ theme, onToggleTheme }: HomePageProps) {
         ...prev,
         [activeSessionId]: next,
       }));
+      const latest = next[next.length - 1];
+      const snippet = latest?.text?.trim() ?? "";
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === activeSessionId
+            ? {
+                ...session,
+                snippet: snippet ? snippet.slice(0, 90) : undefined,
+              }
+            : session,
+        ),
+      );
     },
     [activeSessionId],
   );

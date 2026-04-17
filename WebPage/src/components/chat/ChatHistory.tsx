@@ -5,6 +5,8 @@ export interface ChatSession {
   title: string;
   /** Unix ms for display + `datetime` on `<time>` */
   timestamp: number;
+  /** Optional preview of the latest message in the session. */
+  snippet?: string;
 }
 
 const MAX_CHAT_TITLE_LENGTH = 60;
@@ -31,12 +33,49 @@ export interface ChatHistoryProps {
 
 function formatSessionTime(ms: number): string {
   const d = new Date(ms);
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
+  return d.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
+}
+
+function formatSessionDate(ms: number): string {
+  const d = new Date(ms);
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function toLocalDateKey(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function toMinutesSinceMidnight(ms: number): number {
+  const d = new Date(ms);
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function parseTimeToMinutes(value: string): number | null {
+  if (!value) return null;
+  const [hh, mm] = value.split(":").map(Number);
+  if (
+    Number.isNaN(hh) ||
+    Number.isNaN(mm) ||
+    hh < 0 ||
+    hh > 23 ||
+    mm < 0 ||
+    mm > 59
+  ) {
+    return null;
+  }
+  return hh * 60 + mm;
 }
 
 export default function ChatHistory({
@@ -57,10 +96,43 @@ export default function ChatHistory({
   const [deleteErrorSessionId, setDeleteErrorSessionId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [nameFilter, setNameFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [timeFrom, setTimeFrom] = useState("");
+  const [timeTo, setTimeTo] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const editingSession = useMemo(
     () => sessions.find((s) => s.id === editingSessionId) ?? null,
     [sessions, editingSessionId],
+  );
+  const filteredSessions = useMemo(() => {
+    const normalizedName = nameFilter.trim().toLocaleLowerCase();
+    const fromMinutes = parseTimeToMinutes(timeFrom);
+    const toMinutes = parseTimeToMinutes(timeTo);
+
+    return sessions.filter((session) => {
+      if (
+        normalizedName &&
+        !session.title.toLocaleLowerCase().includes(normalizedName)
+      ) {
+        return false;
+      }
+
+      const dateKey = toLocalDateKey(session.timestamp);
+      if (dateFrom && dateKey < dateFrom) return false;
+      if (dateTo && dateKey > dateTo) return false;
+
+      const minutes = toMinutesSinceMidnight(session.timestamp);
+      if (fromMinutes !== null && minutes < fromMinutes) return false;
+      if (toMinutes !== null && minutes > toMinutes) return false;
+
+      return true;
+    });
+  }, [sessions, nameFilter, dateFrom, dateTo, timeFrom, timeTo]);
+  const hasFilters = Boolean(
+    nameFilter.trim() || dateFrom || dateTo || timeFrom || timeTo,
   );
 
   useEffect(() => {
@@ -155,6 +227,14 @@ export default function ChatHistory({
     }
   };
 
+  const clearFilters = () => {
+    setNameFilter("");
+    setDateFrom("");
+    setDateTo("");
+    setTimeFrom("");
+    setTimeTo("");
+  };
+
   return (
     <aside className="chat-history" aria-label="Chat sessions">
       <button
@@ -170,14 +250,97 @@ export default function ChatHistory({
         </div>
       )}
       <h3 className="chat-history-title">Chats</h3>
+      <div className="chat-history-filter-toggle-wrap">
+        <button
+          type="button"
+          className="chat-history-inline-btn chat-history-filter-toggle"
+          aria-expanded={isFilterOpen}
+          aria-controls="chat-history-filters-panel"
+          onClick={() => setIsFilterOpen((v) => !v)}
+        >
+          {isFilterOpen ? "Hide filters" : "Filters"}
+        </button>
+        {hasFilters && <span className="chat-history-filter-badge">Active</span>}
+      </div>
+      {isFilterOpen && (
+        <div
+          id="chat-history-filters-panel"
+          className="chat-history-filters"
+          aria-label="Chat history filters"
+        >
+          <label className="visually-hidden" htmlFor="chat-filter-name">
+            Search chat by name
+          </label>
+          <input
+            id="chat-filter-name"
+            type="search"
+            className="chat-history-filter-input"
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            placeholder="Search by name"
+          />
+          <div className="chat-history-filter-row">
+            <label className="chat-history-filter-label">
+              From date
+              <input
+                type="date"
+                className="chat-history-filter-input"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+            </label>
+            <label className="chat-history-filter-label">
+              To date
+              <input
+                type="date"
+                className="chat-history-filter-input"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="chat-history-filter-row">
+            <label className="chat-history-filter-label">
+              From time
+              <input
+                type="time"
+                className="chat-history-filter-input"
+                value={timeFrom}
+                onChange={(e) => setTimeFrom(e.target.value)}
+              />
+            </label>
+            <label className="chat-history-filter-label">
+              To time
+              <input
+                type="time"
+                className="chat-history-filter-input"
+                value={timeTo}
+                onChange={(e) => setTimeTo(e.target.value)}
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            className="chat-history-inline-btn chat-history-filter-clear"
+            onClick={clearFilters}
+            disabled={!hasFilters}
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
       <div className="chat-history-body">
         {!hasSessions ? (
           <p className="chat-history-empty" role="status">
             No chat history yet
           </p>
+        ) : filteredSessions.length === 0 ? (
+          <p className="chat-history-empty" role="status">
+            No chats match current filters
+          </p>
         ) : (
           <ul className="chat-history-list">
-            {sessions.map((session) => {
+            {filteredSessions.map((session) => {
               const isActive = session.id === activeSessionId;
               const isEditing = session.id === editingSessionId;
               const isSaving = session.id === savingSessionId;
@@ -196,10 +359,16 @@ export default function ChatHistory({
                       onClick={() => onSelectSession?.(session.id)}
                     >
                       <span className="chat-history-item-title">{session.title}</span>
+                      {session.snippet && (
+                        <span className="chat-history-item-snippet">
+                          {session.snippet}
+                        </span>
+                      )}
                       <time
                         className="chat-history-item-time"
                         dateTime={new Date(session.timestamp).toISOString()}
                       >
+                        {formatSessionDate(session.timestamp)} •{" "}
                         {formatSessionTime(session.timestamp)}
                       </time>
                     </button>
