@@ -205,6 +205,12 @@ p, ul, ol {
 [data-theme="dark"] .badge { background: #2a1a10; color: #ffcfb0; border-color: #3a2a1f; }
 
 .hero-layout { display: grid; grid-template-columns: 320px 1fr; gap: var(--sp-6); }
+
+.hero-layout.docs-layout {
+  grid-template-columns: minmax(360px, 40%) 1fr;
+  gap: var(--sp-6);
+}
+
 .hero-layout > div[aria-label="Left column"] {
   min-height: 0;
   display: flex;
@@ -877,3 +883,13 @@ footer { padding: var(--sp-6) 0 var(--sp-7); color: var(--text-secondary); }
   border-radius: 14px;
   z-index: 1;
 }
+
+.container--full {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding-left: var(--sp-6);
+  padding-right: var(--sp-6);
+}
+
+
