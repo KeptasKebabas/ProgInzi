@@ -29,8 +29,8 @@ export default function PageLayoutDocs({
       </div>
 
       {/* Main section – uses your hero + hero-layout */}
-      <main id="main" className="container" aria-label="Main content" style={{ paddingTop: 24, paddingBottom: 24 }}>
-        <section className="hero">
+      <main id="main" className="container container--full" aria-label="Main content" style={{ paddingTop: 24, paddingBottom: 24 }}>
+        <section className="docs-section">
           <div>
             {/* Left column (320px on desktop per CSS) */}
             <div aria-label="Left column">
